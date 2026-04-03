@@ -2,11 +2,42 @@
 @tailwind components;
 @tailwind utilities;
 
+@layer base {
+  html, body {
+    @apply h-full;
+  }
+
+  * {
+    @apply box-border;
+  }
+}
+
 @layer utilities {
   .delay-100 {
     animation-delay: 0.1s;
   }
   .delay-200 {
     animation-delay: 0.2s;
+  }
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+  .message-enter {
+    animation: messageIn 0.2s ease-out;
+  }
+}
+
+@keyframes messageIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
   }
 }

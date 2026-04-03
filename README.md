@@ -39,8 +39,8 @@ A modern full-stack medical assistant powered by LangGraph and OpenAI, ready for
 
 ```bash
 cd backend
-python -m venv venv
-source venv/bin/activate  # On Windows: .venv\Scripts\activate
+python -m venv .venv
+source .venv/bin/activate  # On Windows (PowerShell): .\.venv\Scripts\Activate.ps1
 pip install -r requirements.txt
 cp .env.example .env
 # Edit .env with your OPENAI_API_KEY

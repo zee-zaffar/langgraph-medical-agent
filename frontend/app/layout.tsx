@@ -1,38 +1,26 @@
-'use client'
+import type { Metadata } from 'next'
+import './globals.css'
 
-import { useEffect } from 'react'
+export const metadata: Metadata = {
+  title: 'MedAI Assistant',
+  description: 'AI-powered medical assistant powered by LangGraph',
+}
 
 export default function RootLayout({
   children,
 }: {
   children: React.ReactNode
 }) {
-  useEffect(() => {
-    // Verify backend is accessible
-    const checkBackend = async () => {
-      try {
-        const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
-        const response = await fetch(`${apiUrl}/health`)
-        if (!response.ok) {
-          console.warn('Backend health check failed')
-        }
-      } catch (error) {
-        console.warn('Could not connect to backend:', error)
-      }
-    }
-
-    checkBackend()
-  }, [])
-
   return (
-    <html lang="en">
+    <html lang="en" className="h-full">
       <head>
         <meta charSet="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
-        <title>Medical Assistant Agent</title>
-        <meta name="description" content="AI-powered medical assistant" />
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
       </head>
-      <body className="bg-gradient-to-br from-blue-50 to-indigo-100 min-h-screen">
+      <body className="h-full bg-slate-50" style={{ fontFamily: "'Inter', sans-serif" }}>
         {children}
       </body>
     </html>

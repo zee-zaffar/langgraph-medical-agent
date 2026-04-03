@@ -6,9 +6,12 @@ FastAPI server for the LangGraph medical agent.
 
 1. Create virtual environment:
    ```bash
-   python -m venv venv
-   # On Windows:
-   .venv\Scripts\activate
+   python -m venv .venv
+   # Or use an existing backend/venv if you already created it earlier
+   # On macOS/Linux:
+   source .venv/bin/activate
+   # On Windows PowerShell (from backend/, recommended):
+   .\activate.ps1
    ```
 
 2. Install dependencies:
