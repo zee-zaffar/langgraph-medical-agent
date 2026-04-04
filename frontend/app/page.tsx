@@ -19,6 +19,7 @@ const SPECIALIST_ICONS: Record<string, string> = {
 }
 
 export default function Home() {
+  console.log('API_URL:', process.env.NEXT_PUBLIC_API_URL)
   const [messages, setMessages] = useState<Message[]>([
     {
       id: '0',

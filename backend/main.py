@@ -16,15 +16,11 @@ load_dotenv()
 
 app = FastAPI(title="Medical Agent API")
 
-# Enable CORS for Vercel frontend
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:3000",
-        "http://localhost:8000",
-        os.getenv("FRONTEND_URL", ""),
-    ],
-    allow_credentials=True,
+    # Public API usage from browser: allow all origins and avoid credential constraints.
+    allow_origins=["*"],
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
