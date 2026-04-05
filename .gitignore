@@ -60,3 +60,5 @@ htmlcov/
 # Logs
 *.log
 logs/
+LINKEDIN_POST.md
+ARCHITECTURE_DIAGRAM.html

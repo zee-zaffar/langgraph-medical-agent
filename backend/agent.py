@@ -4,6 +4,7 @@ This demonstrates how to use the OpenAI API with LangGraph for building conversa
 """
 
 import os
+from pathlib import Path
 from io import BytesIO
 from dotenv import load_dotenv
 from typing import Annotated, Literal
@@ -27,6 +28,17 @@ def get_openai_llm():
     )
 
 llm = get_openai_llm()
+
+SKILLS_DIR = Path(__file__).resolve().parent / "skills"
+
+
+def load_skill_prompt(name: str, fallback: str) -> str:
+    """Load a specialist prompt from skills/<name>.SKILL.md."""
+    path = SKILLS_DIR / f"{name}.SKILL.md"
+    try:
+        return path.read_text(encoding="utf-8").strip()
+    except OSError:
+        return fallback
 
 # Structured output for message classification
 class MessageClassifier(BaseModel):
@@ -62,15 +74,16 @@ def classify_message(state: State):
 
     return {"message_type": result.message_type}
 
-def cardilogist_agent(state: State):
+def cardiologist_agent(state: State):
     last_message = state["messages"][-1]
+    system_prompt = load_skill_prompt(
+        "cardiologist",
+        "You are a cardiologist agent that deals with heart-related issues only.",
+    )
     mesages = [
         {
             "role": "system", 
-            "content": """
-                            You are a cardilogist agent that deal with all heart related issues.."
-                            should only respond to issues relates to heart problems. 
-                        """
+            "content": system_prompt
         },
         {
             "role": "user", 
@@ -90,12 +103,14 @@ def cardilogist_agent(state: State):
 
 def general_agent(state: State):
     last_message = state["messages"][-1]
+    system_prompt = load_skill_prompt(
+        "general",
+        "You are a general health agent that handles non-specialist health issues.",
+    )
     mesages = [
         {
             "role": "system", 
-            "content": """
-                            You are a general agent that handle general health related issues that are not specific to any medical specialist.
-                        """
+            "content": system_prompt
         },
         {
             "role": "user", 
@@ -115,13 +130,14 @@ def general_agent(state: State):
 
 def dentist_agent(state: State):
     last_message = state["messages"][-1]
+    system_prompt = load_skill_prompt(
+        "dentist",
+        "You are a dentist agent that deals with dental and oral health issues only.",
+    )
     mesages = [
         {
             "role": "system", 
-            "content": """
-                            You are a dentist agent that deal with all teeth and oral health related issues.
-                            should only respond to issues relates to dental problems. 
-                        """
+            "content": system_prompt
         },
         {
             "role": "user", 
@@ -149,7 +165,7 @@ def build_graph():
     
     # Add nodes
     builder.add_node("classifier", classify_message)
-    builder.add_node("cardiologist", cardilogist_agent)
+    builder.add_node("cardiologist", cardiologist_agent)
     builder.add_node("general", general_agent)
     builder.add_node("dentist", dentist_agent)
     
