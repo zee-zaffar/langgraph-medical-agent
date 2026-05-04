@@ -2,19 +2,40 @@
 FastAPI server for the LangGraph medical agent.
 """
 
+from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 import os
+import uuid
 import json
 from dotenv import load_dotenv
-from agent import graph
+from agent import build_graph
 
 # Load environment variables
 load_dotenv()
 
-app = FastAPI(title="Medical Agent API")
+# Module-level graph; replaced with checkpointed version on startup when DATABASE_URL is set
+graph = build_graph()
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    global graph
+    db_url = os.getenv("DATABASE_URL", "")
+    pool = None
+    if db_url:
+        from psycopg_pool import ConnectionPool
+        from langgraph.checkpoint.postgres import PostgresSaver
+        pool = ConnectionPool(conninfo=db_url, open=True)
+        checkpointer = PostgresSaver(pool)
+        checkpointer.setup()
+        graph = build_graph(checkpointer=checkpointer)
+    yield
+    if pool:
+        pool.close()
+
+app = FastAPI(title="Medical Agent API", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
@@ -27,10 +48,12 @@ app.add_middleware(
 
 class MessageRequest(BaseModel):
     message: str
+    thread_id: str | None = None  # Provide to persist conversation state across calls
 
 class MessageResponse(BaseModel):
     response: str
     message_type: str | None
+    thread_id: str
 
 @app.get("/health")
 def health_check():
@@ -41,38 +64,33 @@ def health_check():
 def chat(request: MessageRequest) -> MessageResponse:
     """
     Process a user message through the medical agent.
-    
-    Args:
-        request: MessageRequest containing the user's message
-        
-    Returns:
-        MessageResponse with the agent's response and classified message type
+    Pass the same thread_id across requests to maintain conversation history.
     """
+    thread_id = request.thread_id or str(uuid.uuid4())
     try:
-        # Initialize state with the user message
         initial_state = {
             "messages": [
                 {"role": "user", "content": request.message}
             ],
             "message_type": None
         }
-        
-        # Run the graph
-        result = graph.invoke(initial_state)
-        
-        # Extract the response from the last message
-        # LangGraph returns AIMessage objects, not plain dicts
+        config = {"configurable": {"thread_id": thread_id}}
+
+        result = graph.invoke(initial_state, config=config)
+
         last_message = result["messages"][-1]
         response_text = last_message.content if hasattr(last_message, "content") else last_message.get("content", "No response")
-        
+
         return MessageResponse(
             response=response_text,
-            message_type=result.get("message_type")
+            message_type=result.get("message_type"),
+            thread_id=thread_id,
         )
     except Exception as e:
         return MessageResponse(
             response=f"Error processing message: {str(e)}",
-            message_type=None
+            message_type=None,
+            thread_id=thread_id,
         )
 
 @app.post("/chat/stream")
@@ -81,18 +99,25 @@ async def chat_stream(request: MessageRequest):
     Stream a response from the medical agent using Server-Sent Events.
     Events: {type: 'message_type', value: str} | {type: 'token', value: str} | {type: 'done'} | {type: 'error', value: str}
     """
+    thread_id = request.thread_id or str(uuid.uuid4())
+
     async def generate():
         try:
             initial_state = {
                 "messages": [{"role": "user", "content": request.message}],
                 "message_type": None,
             }
+            config = {"configurable": {"thread_id": thread_id}}
 
             message_type_sent = False
 
-            async for event in graph.astream_events(initial_state, version="v2"):
+            async for event in graph.astream_events(initial_state, config=config, version="v2"):
                 event_type = event.get("event")
                 node = event.get("metadata", {}).get("langgraph_node", "")
+
+                # Emit thread_id first so the client can store it
+                if not message_type_sent:
+                    yield f"data: {json.dumps({'type': 'thread_id', 'value': thread_id})}\n\n"
 
                 # Detect specialist by watching which agent node starts
                 if not message_type_sent and event_type == "on_chain_start" and node in ("cardiologist", "dentist", "general"):
