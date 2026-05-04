@@ -159,7 +159,7 @@ def should_end(state: State):
     """Determine if the conversation should end."""
     return state.get("message_type") is not None
 
-def build_graph():
+def build_graph(checkpointer=None):
     """Build and compile the LangGraph agent."""
     builder = StateGraph(State)
     
@@ -188,7 +188,7 @@ def build_graph():
     builder.add_edge("dentist", END)
     builder.add_edge("general", END)
     
-    return builder.compile()
+    return builder.compile(checkpointer=checkpointer)
 
 # Initialize the graph
 graph = build_graph()
