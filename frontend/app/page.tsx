@@ -20,6 +20,7 @@ const SPECIALIST_ICONS: Record<string, string> = {
 
 export default function Home() {
   console.log('API_URL:', process.env.NEXT_PUBLIC_API_URL)
+  const [threadId, setThreadId] = useState<string | null>('163b84bb-82c7-4ea9-9067-58f50e80dc87')
   const [messages, setMessages] = useState<Message[]>([
     {
       id: '0',
@@ -59,6 +60,10 @@ export default function Home() {
     setError(null)
 
     await streamChatWithAgent(content, {
+      onThreadId: (id) => {
+        setThreadId(id)
+      },
+
       onMessageType: (type) => {
         setMessages(prev =>
           prev.map(m => m.id === assistantId ? { ...m, messageType: type } : m)
@@ -78,7 +83,7 @@ export default function Home() {
         setMessages(prev => prev.filter(m => m.id !== assistantId))
         setLoading(false)
       },
-    })
+    }, threadId)
   }
 
   return (

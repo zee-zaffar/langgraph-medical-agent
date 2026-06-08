@@ -75,23 +75,14 @@ def classify_message(state: State):
     return {"message_type": result.message_type}
 
 def cardiologist_agent(state: State):
-    last_message = state["messages"][-1]
     system_prompt = load_skill_prompt(
         "cardiologist",
         "You are a cardiologist agent that deals with heart-related issues only.",
     )
-    mesages = [
-        {
-            "role": "system", 
-            "content": system_prompt
-        },
-        {
-            "role": "user", 
-            "content": last_message.content
-        }
-    ]
+    from langchain_core.messages import SystemMessage
+    messages = [SystemMessage(content=system_prompt)] + state["messages"]
 
-    reply = llm.invoke(mesages)
+    reply = llm.invoke(messages)
     return {
         "messages": [
             {
@@ -102,23 +93,14 @@ def cardiologist_agent(state: State):
     }
 
 def general_agent(state: State):
-    last_message = state["messages"][-1]
     system_prompt = load_skill_prompt(
         "general",
         "You are a general health agent that handles non-specialist health issues.",
     )
-    mesages = [
-        {
-            "role": "system", 
-            "content": system_prompt
-        },
-        {
-            "role": "user", 
-            "content": last_message.content
-        }
-    ]
+    from langchain_core.messages import SystemMessage
+    messages = [SystemMessage(content=system_prompt)] + state["messages"]
 
-    reply = llm.invoke(mesages)
+    reply = llm.invoke(messages)
     return {
         "messages": [
             {
@@ -129,23 +111,14 @@ def general_agent(state: State):
     }
 
 def dentist_agent(state: State):
-    last_message = state["messages"][-1]
     system_prompt = load_skill_prompt(
         "dentist",
         "You are a dentist agent that deals with dental and oral health issues only.",
     )
-    mesages = [
-        {
-            "role": "system", 
-            "content": system_prompt
-        },
-        {
-            "role": "user", 
-            "content": last_message.content
-        }
-    ]
+    from langchain_core.messages import SystemMessage
+    messages = [SystemMessage(content=system_prompt)] + state["messages"]
 
-    reply = llm.invoke(mesages)
+    reply = llm.invoke(messages)
     return {
         "messages": [
             {
