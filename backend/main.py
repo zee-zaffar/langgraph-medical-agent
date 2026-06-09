@@ -25,15 +25,31 @@ async def lifespan(app: FastAPI):
     db_url = os.getenv("DATABASE_URL", "")
     pool = None
     if db_url:
-        from psycopg_pool import ConnectionPool
-        from langgraph.checkpoint.postgres import PostgresSaver
-        pool = ConnectionPool(conninfo=db_url, open=True)
-        checkpointer = PostgresSaver(pool)
-        checkpointer.setup()
-        graph = build_graph(checkpointer=checkpointer)
+        try:
+            from urllib.parse import urlparse
+            from psycopg_pool import AsyncConnectionPool
+            from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
+
+            # Parse the URL and build an explicit DSN to avoid libpq URI-parsing issues
+            parsed = urlparse(db_url)
+            dsn = (
+                f"host={parsed.hostname} "
+                f"port={parsed.port or 5432} "
+                f"user={parsed.username} "
+                f"password={parsed.password} "
+                f"dbname={parsed.path.lstrip('/')} "
+                f"sslmode=disable"
+            )
+            pool = AsyncConnectionPool(conninfo=dsn, open=False, kwargs={"autocommit": True})
+            await pool.open()
+            checkpointer = AsyncPostgresSaver(pool)
+            await checkpointer.setup()
+            graph = build_graph(checkpointer=checkpointer)
+        except Exception as exc:
+            print(f"WARNING: Could not connect to database ({exc}). Running without memory persistence.")
     yield
     if pool:
-        pool.close()
+        await pool.close()
 
 app = FastAPI(title="Medical Agent API", lifespan=lifespan)
 
@@ -109,15 +125,17 @@ async def chat_stream(request: MessageRequest):
             }
             config = {"configurable": {"thread_id": thread_id}}
 
+            thread_id_sent = False
             message_type_sent = False
 
             async for event in graph.astream_events(initial_state, config=config, version="v2"):
                 event_type = event.get("event")
                 node = event.get("metadata", {}).get("langgraph_node", "")
 
-                # Emit thread_id first so the client can store it
-                if not message_type_sent:
+                # Emit thread_id exactly once
+                if not thread_id_sent:
                     yield f"data: {json.dumps({'type': 'thread_id', 'value': thread_id})}\n\n"
+                    thread_id_sent = True
 
                 # Detect specialist by watching which agent node starts
                 if not message_type_sent and event_type == "on_chain_start" and node in ("cardiologist", "dentist", "general"):
