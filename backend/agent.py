@@ -42,9 +42,9 @@ def load_skill_prompt(name: str, fallback: str) -> str:
 
 # Structured output for message classification
 class MessageClassifier(BaseModel):
-    message_type: Literal["cardiologist", "dentist", "general"] = Field(
+    message_type: Literal["cardiologist", "dentist", "nutritionist", "general"] = Field(
         ..., 
-        description="Classify if the message is related to cardiology (heart issues), dentistry (teeth) or a general issue."
+        description="Classify if the message is related to cardiology (heart issues), dentistry (teeth/oral health), nutrition/diet, or a general health issue."
     )
 
 class State(TypedDict):
@@ -60,10 +60,11 @@ def classify_message(state: State):
         {
             "role": "system", 
             "content": """
-                            Classify the user's message into one of the following categories that is most approrpirate to handle the issue:
-                            - cardiologist, 
-                            - dentist,
-                            - general 
+                            Classify the user's message into one of the following categories that is most appropriate to handle the issue:
+                            - cardiologist (heart, blood pressure, chest pain, palpitations)
+                            - dentist (teeth, gums, mouth, oral health)
+                            - nutritionist (diet, food, weight, vitamins, nutrition, eating habits)
+                            - general (everything else)
                         """
         },
         {
@@ -128,6 +129,24 @@ def dentist_agent(state: State):
         ]
     }
 
+def nutritionist_agent(state: State):
+    system_prompt = load_skill_prompt(
+        "nutritionist",
+        "You are a nutritionist agent that deals with diet, food, and nutrition issues only.",
+    )
+    from langchain_core.messages import SystemMessage
+    messages = [SystemMessage(content=system_prompt)] + state["messages"]
+
+    reply = llm.invoke(messages)
+    return {
+        "messages": [
+            {
+                "role": "assistant",
+                "content": "Your request was routed to Nutritionist Agent\n\n" + reply.content,
+            }
+        ]
+    }
+
 def should_end(state: State):
     """Determine if the conversation should end."""
     return state.get("message_type") is not None
@@ -141,6 +160,7 @@ def build_graph(checkpointer=None):
     builder.add_node("cardiologist", cardiologist_agent)
     builder.add_node("general", general_agent)
     builder.add_node("dentist", dentist_agent)
+    builder.add_node("nutritionist", nutritionist_agent)
     
     # Add edges
     builder.add_edge(START, "classifier")
@@ -152,6 +172,7 @@ def build_graph(checkpointer=None):
         {
             "cardiologist": "cardiologist",
             "dentist": "dentist",
+            "nutritionist": "nutritionist",
             "general": "general",
         }
     )
@@ -159,6 +180,7 @@ def build_graph(checkpointer=None):
     # All agents route to END
     builder.add_edge("cardiologist", END)
     builder.add_edge("dentist", END)
+    builder.add_edge("nutritionist", END)
     builder.add_edge("general", END)
     
     return builder.compile(checkpointer=checkpointer)

@@ -138,12 +138,12 @@ async def chat_stream(request: MessageRequest):
                     thread_id_sent = True
 
                 # Detect specialist by watching which agent node starts
-                if not message_type_sent and event_type == "on_chain_start" and node in ("cardiologist", "dentist", "general"):
+                if not message_type_sent and event_type == "on_chain_start" and node in ("cardiologist", "dentist", "general", "nutritionist"):
                     yield f"data: {json.dumps({'type': 'message_type', 'value': node})}\n\n"
                     message_type_sent = True
 
                 # Stream tokens from specialist agents only (not the classifier)
-                elif event_type == "on_chat_model_stream" and node in ("cardiologist", "dentist", "general"):
+                elif event_type == "on_chat_model_stream" and node in ("cardiologist", "dentist", "general", "nutritionist"):
                     chunk = event.get("data", {}).get("chunk")
                     if chunk and hasattr(chunk, "content") and chunk.content:
                         yield f"data: {json.dumps({'type': 'token', 'value': chunk.content})}\n\n"
