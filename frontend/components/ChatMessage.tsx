@@ -1,6 +1,7 @@
 import React, { useState } from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
+import AppointmentModal from './AppointmentModal'
 
 interface Message {
   id: string
@@ -39,6 +40,7 @@ export default function ChatMessage({ message, isStreaming = false }: ChatMessag
   const avatarIcon = specialist?.icon ?? '🩺'
   const showTypingDots = isStreaming && message.content === ''
   const [copied, setCopied] = useState(false)
+  const [showModal, setShowModal] = useState(false)
 
   const handleCopy = () => {
     navigator.clipboard.writeText(message.content)
@@ -118,15 +120,34 @@ export default function ChatMessage({ message, isStreaming = false }: ChatMessag
             </div>
           )}
 
-          {/* Specialist badge */}
+          {/* Specialist badge + Book Appointment button */}
           {!isUser && specialist && (
-            <div className={`inline-flex items-center gap-1.5 mt-3 px-2.5 py-1 rounded-full text-xs font-medium border ${specialist.bg} ${specialist.text} ${specialist.border}`}>
-              <span>{specialist.icon}</span>
-              <span>{specialist.label} Agent</span>
+            <div className="flex flex-wrap items-center gap-2 mt-3">
+              <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border ${specialist.bg} ${specialist.text} ${specialist.border}`}>
+                <span>{specialist.icon}</span>
+                <span>{specialist.label} Agent</span>
+              </div>
+              {!isStreaming && message.content && (
+                <button
+                  onClick={() => setShowModal(true)}
+                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border bg-indigo-50 text-indigo-700 border-indigo-200 hover:bg-indigo-100 transition-colors"
+                >
+                  <span>📅</span> Schedule Appointment
+                </button>
+              )}
             </div>
           )}
         </div>
       </div>
+
+      {/* Appointment booking modal */}
+      {showModal && specialist && (
+        <AppointmentModal
+          specialist={message.messageType!}
+          specialistIcon={specialist.icon}
+          onClose={() => setShowModal(false)}
+        />
+      )}
     </div>
   )
 }
