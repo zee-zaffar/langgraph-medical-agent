@@ -163,6 +163,78 @@ async def chat_stream(request: MessageRequest):
         },
     )
 
+# ── Twilio appointment call ──────────────────────────────────────────────
+
+class CallRequest(BaseModel):
+    patient_name: str
+    specialist: str
+    date: str          # YYYY-MM-DD
+    time: str          # HH:MM
+    clinic_number: str # E.164 format e.g. +442012345678
+
+class CallResponse(BaseModel):
+    call_sid: str
+    status: str
+    message: str
+
+@app.post("/appointments/call", response_model=CallResponse)
+def make_appointment_call(req: CallRequest):
+    """
+    Use Twilio to place an outbound call to the clinic.
+    Twilio reads a TwiML message confirming the appointment details.
+    Requires TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_FROM_NUMBER in .env
+    """
+    account_sid = os.getenv("TWILIO_ACCOUNT_SID")
+    auth_token  = os.getenv("TWILIO_AUTH_TOKEN")
+    from_number = os.getenv("TWILIO_FROM_NUMBER")
+
+    if not all([account_sid, auth_token, from_number]):
+        # Return a graceful error if Twilio is not configured
+        return CallResponse(
+            call_sid="not-configured",
+            status="skipped",
+            message="Twilio credentials not set — call skipped. Add TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_FROM_NUMBER to your .env file.",
+        )
+
+    from twilio.rest import Client as TwilioClient
+
+    specialist_label = req.specialist.capitalize()
+    # Format date nicely for the spoken message
+    try:
+        from datetime import datetime
+        spoken_date = datetime.strptime(req.date, "%Y-%m-%d").strftime("%A %-d %B %Y")
+    except Exception:
+        spoken_date = req.date
+
+    twiml = (
+        "<Response>"
+        "<Say voice='Polly.Joanna'>"
+        f"Hello, this is an automated call from MedAI Assistant. "
+        f"We would like to book an appointment for {req.patient_name} "
+        f"with your {specialist_label} on {spoken_date} at {req.time}. "
+        f"Please call us back to confirm or to reschedule. Thank you and goodbye."
+        "</Say>"
+        "</Response>"
+    )
+
+    try:
+        client = TwilioClient(account_sid, auth_token)
+        call = client.calls.create(
+            to=req.clinic_number,
+            from_=from_number,
+            twiml=twiml,
+        )
+        return CallResponse(
+            call_sid=call.sid,
+            status=call.status,
+            message=f"Call placed successfully to {req.clinic_number}",
+        )
+    except Exception as exc:
+        # Surface a clean error rather than a 500
+        from fastapi import HTTPException
+        raise HTTPException(status_code=502, detail=f"Twilio error: {str(exc)}")
+
+
 @app.get("/")
 def root():
     """Root endpoint."""
